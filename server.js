@@ -251,7 +251,7 @@ app.delete("/api/arsip/:id", async (req, res) => {
 app.get("/api/users/staf", async (req, res) => {
   try {
     const staf = await User.findAll({
-      where: { role: "staf" },
+      where: { role: ["staf", "admin", "kasubbag"] },
       attributes: ["id", "username", "nomorWa"],
     });
     res.status(200).json(staf);
