@@ -26,7 +26,7 @@ app.use(
 );
 
 // Tambahkan penanganan khusus untuk 'preflight' request (wajib untuk Vercel)
-app.options("*", cors());
+app.options("/*", cors());
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
@@ -42,7 +42,7 @@ if (!fs.existsSync("./uploads")) fs.mkdirSync("./uploads");
 // ==========================================
 // Masukkan Connection String dari Supabase di sini
 const DB_URL =
-  'DATABASE_URL="postgresql://postgres.cqbsuskfjqqqcqnpgnrx:0OdAHtLbApE7uB4S@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"';
+  "postgresql://postgres.cqbsuskfjqqqcqnpgnrx:0OdAHtLbApE7uB4S@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres";
 
 const sequelize = new Sequelize(DB_URL, {
   dialect: "postgres",
