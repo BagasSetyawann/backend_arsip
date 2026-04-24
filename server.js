@@ -42,11 +42,14 @@ app.use("/uploads", express.static(uploadDir));
 // ==========================================
 // 1. KONEKSI DATABASE (SUPABASE POSTGRESQL)
 // ==========================================
-const DB_URL =
-  "postgresql://postgres.cqbsuskfjqqqcqnpgnrx:0OdAHtLbApE7uB4S@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres";
+const DB_URL = "postgresql://postgres.cqbsuskfjqqqcqnpgnrx:0OdAHtLbApE7uB4S@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres";
+
+// Tambahkan require('pg') secara eksplisit agar Vercel tidak membuangnya
+const pg = require('pg'); 
 
 const sequelize = new Sequelize(DB_URL, {
   dialect: "postgres",
+  dialectModule: pg, // <--- INI KUNCI RAHASIANYA!
   dialectOptions: {
     ssl: {
       require: true,
