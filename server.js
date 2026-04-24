@@ -94,9 +94,6 @@ const Arsip = sequelize.define("Arsip", {
 // 3. SINKRONISASI & SEEDER ADMIN OTOMATIS
 // ==========================================
 // sync({ alter: true }) akan otomatis membuat/mengupdate tabel di Postgres tanpa menghapus data
-sequelize.sync({ alter: true }).then(async () => {
-  console.log("✅ Tabel database berhasil disinkronisasi.");
-
   try {
     // Menambahkan contoh staf dari berbagai tim divisi
     const users = [
@@ -161,7 +158,35 @@ const upload = multer({
 // ==========================================
 // 5. API ENDPOINTS (ROUTES)
 // ==========================================
+// ==========================================
+// 3. API KHUSUS SETUP DATABASE (Hanya dijalankan 1x)
+// ==========================================
+app.get('/api/setup-db', async (req, res) => {
+  try {
+    await sequelize.sync({ alter: true });
+    
+    // Buat akun otomatis
+    const users = [
+      { user: 'admin', pass: 'admin123', role: 'admin', wa: '08111111111' },
+      { user: 'kepala', pass: 'kepala123', role: 'kepala', wa: '08222222222' },
+      { user: 'kasubbag', pass: 'kasubbag123', role: 'kasubbag', wa: '08333333333' },
+      { user: 'staf_produksi', pass: 'staf123', role: 'staf', wa: '081234567890' }
+    ];
 
+    let pesan = "Tabel berhasil disinkronisasi. ";
+    for (let u of users) {
+      const isExist = await User.findOne({ where: { username: u.user } });
+      if (!isExist) {
+        const hashedPassword = await bcrypt.hash(u.pass, 10);
+        await User.create({ username: u.user, password: hashedPassword, role: u.role, nomorWa: u.wa });
+        pesan += `Akun ${u.user} dibuat. `;
+      }
+    }
+    res.status(200).json({ message: pesan });
+  } catch (error) {
+    res.status(500).json({ error: "Gagal setup DB: " + error.message });
+  }
+});
 // --- API AUTHENTICATION ---
 app.post("/api/auth/login", async (req, res) => {
   try {
@@ -276,9 +301,11 @@ app.listen(PORT, () => {
   console.log(`🚀 Server backend berjalan di http://localhost:${PORT}`);
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server berjalan di port ${PORT}`);
-});
+// Matikan app.listen jika sedang berada di Vercel (Production)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server backend berjalan di http://localhost:${PORT}`);
+  });
+}
 
-// Wajib ditambahkan untuk Vercel Serverless
 module.exports = app;
