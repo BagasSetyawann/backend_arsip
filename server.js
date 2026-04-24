@@ -13,11 +13,12 @@ const JWT_SECRET = "rahasia_arsip_super_aman_123";
 
 // ==========================================
 // PENGATURAN SUPABASE
+// ⚠️ GANTI "PASTE_SERVICE_ROLE_KEY_BARU_DISINI" dengan key baru hasil rotate!
+// Ambil dari: Supabase Dashboard → Settings → API → service_role
 // ==========================================
-// Ambil dari Supabase Dashboard → Settings → API
 const SUPABASE_URL = "https://cqbsuskfjqqqcqnpgnrx.supabase.co";
-const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxYnN1c2tmanFxcWNxbnBnbnJ4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjkwMjU5NCwiZXhwIjoyMDkyNDc4NTk0fQ.t-6dM-4IqZn30MgrI_q8Hqj6qgzx51YQFW41Su7HC58"; // ← Ganti ini!
-const BUCKET_NAME = "arsip-dokumen"; // Nama bucket yang kamu buat di Supabase Storage
+const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxYnN1c2tmanFxcWNxbnBnbnJ4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjkwMjU5NCwiZXhwIjoyMDkyNDc4NTk0fQ.t-6dM-4IqZn30MgrI_q8Hqj6qgzx51YQFW41Su7HC58";
+const BUCKET_NAME = "arsip-dokumen";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
@@ -36,6 +37,9 @@ app.use(
     credentials: true,
   }),
 );
+
+// Handle preflight OPTIONS request secara eksplisit
+app.options("*", cors());
 
 app.use(express.json());
 
@@ -84,12 +88,12 @@ const Arsip = sequelize.define("Arsip", {
   perihalSurat: { type: DataTypes.STRING },
   keterangan: { type: DataTypes.TEXT },
   fileName: { type: DataTypes.STRING },
-  filePath: { type: DataTypes.STRING }, // Sekarang berisi URL publik Supabase Storage
+  filePath: { type: DataTypes.STRING }, // URL publik Supabase Storage
 });
 
 // ==========================================
 // KONFIGURASI MULTER (MEMORY STORAGE)
-// File tidak disimpan ke disk, langsung dikirim ke Supabase Storage
+// Tidak simpan ke disk, langsung upload ke Supabase Storage
 // ==========================================
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -105,7 +109,7 @@ const upload = multer({
 // ==========================================
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1]; // Format: "Bearer <token>"
+  const token = authHeader && authHeader.split(" ")[1];
 
   if (!token)
     return res.status(401).json({ message: "Akses ditolak! Token tidak ada." });
@@ -125,32 +129,17 @@ const verifyToken = (req, res, next) => {
 // API ENDPOINTS
 // ==========================================
 
-// --- SETUP DATABASE (Jalankan 1x saja) ---
+// --- SETUP DATABASE (Jalankan 1x saja lewat browser) ---
 app.get("/api/setup-db", async (req, res) => {
   try {
     await sequelize.sync({ alter: true });
 
     const users = [
-      { user: "admin", pass: "admin123", role: "admin", wa: "089512636966" },
-      { user: "kepala", pass: "kepala123", role: "kepala", wa: "08222222222" },
-      {
-        user: "kasubbag",
-        pass: "kasubbag123",
-        role: "kasubbag",
-        wa: "08333333333",
-      },
-      {
-        user: "staf_produksi",
-        pass: "staf123",
-        role: "staf",
-        wa: "081234567890",
-      },
-      {
-        user: "staf_evaluasi",
-        pass: "staf123",
-        role: "staf",
-        wa: "089876543210",
-      },
+      { user: "admin",         pass: "admin123",    role: "admin",    wa: "089512636966" },
+      { user: "kepala",        pass: "kepala123",   role: "kepala",   wa: "08222222222"  },
+      { user: "kasubbag",      pass: "kasubbag123", role: "kasubbag", wa: "08333333333"  },
+      { user: "staf_produksi", pass: "staf123",     role: "staf",     wa: "081234567890" },
+      { user: "staf_evaluasi", pass: "staf123",     role: "staf",     wa: "089876543210" },
     ];
 
     let pesan = "Tabel berhasil disinkronisasi. ";
@@ -243,7 +232,7 @@ app.post("/api/arsip", upload.single("filePdf"), async (req, res) => {
     const arsipBaru = await Arsip.create({
       ...req.body,
       fileName: req.file.originalname,
-      filePath: publicUrl, // ← URL permanen dari Supabase Storage
+      filePath: publicUrl, // URL permanen dari Supabase Storage
     });
 
     res
@@ -277,7 +266,6 @@ app.delete("/api/arsip/:id", async (req, res) => {
 
     // Hapus file dari Supabase Storage jika ada
     if (arsip.filePath) {
-      // Ambil nama file dari URL publik
       const urlParts = arsip.filePath.split("/");
       const fileNameInStorage = urlParts[urlParts.length - 1];
 
@@ -301,12 +289,12 @@ app.delete("/api/arsip/:id", async (req, res) => {
 });
 
 // --- DAFTAR USER UNTUK DISPOSISI ---
-// Menampilkan semua user kecuali "kepala" (sesuaikan dengan kebutuhan)
+// Menampilkan staf, admin, dan kasubbag (admin sekarang muncul di disposisi)
 app.get("/api/users/staf", async (req, res) => {
   try {
     const staf = await User.findAll({
       where: {
-        role: { [Op.in]: ["staf", "admin", "kasubbag"] }, // ← admin sekarang muncul!
+        role: { [Op.in]: ["staf", "admin", "kasubbag"] },
       },
       attributes: ["id", "username", "nomorWa"],
     });
@@ -319,17 +307,14 @@ app.get("/api/users/staf", async (req, res) => {
 });
 
 // --- KIRIM DISPOSISI VIA WHATSAPP ---
-// Endpoint ini mengembalikan link WhatsApp yang bisa dibuka di frontend
 app.post("/api/disposisi/whatsapp", async (req, res) => {
   try {
     const { arsipId, userId, pesan } = req.body;
 
-    // Ambil data arsip
     const arsip = await Arsip.findByPk(arsipId);
     if (!arsip)
       return res.status(404).json({ message: "Arsip tidak ditemukan!" });
 
-    // Ambil data user penerima
     const user = await User.findByPk(userId);
     if (!user)
       return res.status(404).json({ message: "User tidak ditemukan!" });
@@ -340,17 +325,15 @@ app.post("/api/disposisi/whatsapp", async (req, res) => {
         .json({ message: "User tidak memiliki nomor WhatsApp!" });
 
     // Format nomor WA (pastikan diawali 62, bukan 0)
-    let nomorWa = user.nomorWa.replace(/\D/g, ""); // Hapus karakter non-angka
+    let nomorWa = user.nomorWa.replace(/\D/g, "");
     if (nomorWa.startsWith("0")) {
       nomorWa = "62" + nomorWa.slice(1);
     }
 
-    // Buat pesan WhatsApp dengan link dokumen
     const pesanWa =
       pesan ||
       `Yth. ${user.username},\n\nAnda mendapat disposisi surat:\n📋 Perihal: ${arsip.perihalSurat}\n📅 Tanggal: ${arsip.tanggalSurat}\n\n📄 Dokumen dapat dibuka di:\n${arsip.filePath}\n\nTerima kasih.`;
 
-    // Buat link WhatsApp
     const waLink = `https://wa.me/${nomorWa}?text=${encodeURIComponent(pesanWa)}`;
 
     res.status(200).json({
