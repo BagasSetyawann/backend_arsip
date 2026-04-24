@@ -1,8 +1,6 @@
 const express = require("express");
 const { Sequelize, DataTypes, Op } = require("sequelize");
-const multer = require("multer");
 const cors = require("cors");
-const path = require("path");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { createClient } = require("@supabase/supabase-js");
@@ -13,11 +11,12 @@ const JWT_SECRET = "rahasia_arsip_super_aman_123";
 
 // ==========================================
 // PENGATURAN SUPABASE
-// ⚠️ GANTI "PASTE_SERVICE_ROLE_KEY_BARU_DISINI" dengan key baru hasil rotate!
+// ⚠️ Ganti dengan Service Role Key BARU hasil rotate!
 // Ambil dari: Supabase Dashboard → Settings → API → service_role
 // ==========================================
 const SUPABASE_URL = "https://cqbsuskfjqqqcqnpgnrx.supabase.co";
-const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxYnN1c2tmanFxcWNxbnBnbnJ4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjkwMjU5NCwiZXhwIjoyMDkyNDc4NTk0fQ.t-6dM-4IqZn30MgrI_q8Hqj6qgzx51YQFW41Su7HC58";
+const SUPABASE_SERVICE_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxYnN1c2tmanFxcWNxbnBnbnJ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5MDI1OTQsImV4cCI6MjA5MjQ3ODU5NH0.EOGA0sYpgOrrOR9YvadDlHYYG2m1lklENzegvA-IXUw"; // ← Ganti ini!
 const BUCKET_NAME = "arsip-dokumen";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
@@ -92,19 +91,6 @@ const Arsip = sequelize.define("Arsip", {
 });
 
 // ==========================================
-// KONFIGURASI MULTER (MEMORY STORAGE)
-// Tidak simpan ke disk, langsung upload ke Supabase Storage
-// ==========================================
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // Maksimal 10MB
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype === "application/pdf") cb(null, true);
-    else cb(new Error("Hanya file PDF yang diizinkan!"), false);
-  },
-});
-
-// ==========================================
 // MIDDLEWARE: VERIFIKASI TOKEN JWT
 // ==========================================
 const verifyToken = (req, res, next) => {
@@ -135,11 +121,26 @@ app.get("/api/setup-db", async (req, res) => {
     await sequelize.sync({ alter: true });
 
     const users = [
-      { user: "admin",         pass: "admin123",    role: "admin",    wa: "089512636966" },
-      { user: "kepala",        pass: "kepala123",   role: "kepala",   wa: "08222222222"  },
-      { user: "kasubbag",      pass: "kasubbag123", role: "kasubbag", wa: "08333333333"  },
-      { user: "staf_produksi", pass: "staf123",     role: "staf",     wa: "081234567890" },
-      { user: "staf_evaluasi", pass: "staf123",     role: "staf",     wa: "089876543210" },
+      { user: "admin", pass: "admin123", role: "admin", wa: "089512636966" },
+      { user: "kepala", pass: "kepala123", role: "kepala", wa: "08222222222" },
+      {
+        user: "kasubbag",
+        pass: "kasubbag123",
+        role: "kasubbag",
+        wa: "08333333333",
+      },
+      {
+        user: "staf_produksi",
+        pass: "staf123",
+        role: "staf",
+        wa: "081234567890",
+      },
+      {
+        user: "staf_evaluasi",
+        pass: "staf123",
+        role: "staf",
+        wa: "089876543210",
+      },
     ];
 
     let pesan = "Tabel berhasil disinkronisasi. ";
@@ -196,43 +197,39 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
-// --- UPLOAD ARSIP (dengan Supabase Storage) ---
-app.post("/api/arsip", upload.single("filePdf"), async (req, res) => {
+// --- SIMPAN DATA ARSIP ---
+// File sudah diupload langsung ke Supabase Storage dari frontend
+// Backend hanya menerima URL file (filePath) dan data teks
+app.post("/api/arsip", async (req, res) => {
   try {
-    if (!req.file)
+    const {
+      jenisSurat,
+      nomorSurat,
+      nomorBerkas,
+      kodeSurat,
+      penerima,
+      tanggalSurat,
+      perihalSurat,
+      keterangan,
+      fileName,
+      filePath,
+    } = req.body;
+
+    if (!filePath) {
       return res.status(400).json({ message: "File PDF wajib diunggah!" });
-
-    // Buat nama file unik agar tidak bentrok
-    const uniqueFileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(req.file.originalname)}`;
-
-    // Upload file ke Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from(BUCKET_NAME)
-      .upload(uniqueFileName, req.file.buffer, {
-        contentType: "application/pdf",
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error("Supabase upload error:", uploadError);
-      return res.status(500).json({
-        message: "Gagal mengupload file ke storage",
-        error: uploadError.message,
-      });
     }
 
-    // Ambil URL publik file yang baru diupload
-    const { data: urlData } = supabase.storage
-      .from(BUCKET_NAME)
-      .getPublicUrl(uniqueFileName);
-
-    const publicUrl = urlData.publicUrl;
-
-    // Simpan data arsip ke database dengan URL publik
     const arsipBaru = await Arsip.create({
-      ...req.body,
-      fileName: req.file.originalname,
-      filePath: publicUrl, // URL permanen dari Supabase Storage
+      jenisSurat,
+      nomorSurat,
+      nomorBerkas,
+      kodeSurat,
+      penerima,
+      tanggalSurat,
+      perihalSurat,
+      keterangan,
+      fileName,
+      filePath,
     });
 
     res
@@ -289,7 +286,6 @@ app.delete("/api/arsip/:id", async (req, res) => {
 });
 
 // --- DAFTAR USER UNTUK DISPOSISI ---
-// Menampilkan staf, admin, dan kasubbag (admin sekarang muncul di disposisi)
 app.get("/api/users/staf", async (req, res) => {
   try {
     const staf = await User.findAll({
