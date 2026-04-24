@@ -16,7 +16,7 @@ const JWT_SECRET = "rahasia_arsip_super_aman_123";
 // ==========================================
 // Ambil dari Supabase Dashboard → Settings → API
 const SUPABASE_URL = "https://cqbsuskfjqqqcqnpgnrx.supabase.co";
-const SUPABASE_SERVICE_KEY = "YOUR_SUPABASE_SERVICE_ROLE_KEY"; // ← Ganti ini!
+const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxYnN1c2tmanFxcWNxbnBnbnJ4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjkwMjU5NCwiZXhwIjoyMDkyNDc4NTk0fQ.t-6dM-4IqZn30MgrI_q8Hqj6qgzx51YQFW41Su7HC58"; // ← Ganti ini!
 const BUCKET_NAME = "arsip-dokumen"; // Nama bucket yang kamu buat di Supabase Storage
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
