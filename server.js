@@ -11,7 +11,22 @@ const app = express();
 const PORT = 5000;
 const JWT_SECRET = "rahasia_arsip_super_aman_123";
 
-app.use(cors());
+app.use(
+  cors({
+    // Izinkan frontend Vercel kamu dan localhost (jika dites di komputer)
+    origin: [
+      "https://frontend-arsip.vercel.app",
+      "http://localhost:5173",
+      "http://localhost:3000",
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  }),
+);
+
+// Tambahkan penanganan khusus untuk 'preflight' request (wajib untuk Vercel)
+app.options("*", cors());
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
@@ -26,15 +41,16 @@ if (!fs.existsSync("./uploads")) fs.mkdirSync("./uploads");
 // 1. KONEKSI DATABASE (SUPABASE POSTGRESQL)
 // ==========================================
 // Masukkan Connection String dari Supabase di sini
-const DB_URL = 'DATABASE_URL="postgresql://postgres.cqbsuskfjqqqcqnpgnrx:0OdAHtLbApE7uB4S@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"';
+const DB_URL =
+  'DATABASE_URL="postgresql://postgres.cqbsuskfjqqqcqnpgnrx:0OdAHtLbApE7uB4S@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"';
 
 const sequelize = new Sequelize(DB_URL, {
-  dialect: 'postgres',
+  dialect: "postgres",
   dialectOptions: {
     ssl: {
       require: true,
-      rejectUnauthorized: false // Wajib untuk Supabase
-    }
+      rejectUnauthorized: false, // Wajib untuk Supabase
+    },
   },
   logging: false,
 });
